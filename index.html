@@ -6,7 +6,8 @@
 <title>Portfólió Dashboard</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script crossorigin src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script crossorigin src="https://unpkg.com/recharts@2.1.9/umd/Recharts.js"></script>
 <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -506,6 +507,18 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<script>
+window.addEventListener('error', function(e) {
+  var root = document.getElementById('root');
+  if (root && !root.hasChildNodes()) {
+    root.innerHTML = '<div style="color:#f87171;background:#111;border:1px solid #333;border-radius:8px;padding:16px;margin:40px auto;max-width:600px;font-family:monospace;font-size:13px;line-height:1.6;">'
+      + '<strong>⚠ Betöltési hiba</strong><br><br>'
+      + (e.message || 'Ismeretlen hiba') + '<br><br>'
+      + '<span style="color:#888;">Frissítsd az oldalt (Ctrl/Cmd+Shift+R). Ha ismétlődik, a CDN-szkriptek (React/Recharts) nem töltődtek be – ellenőrizd az internetkapcsolatot vagy jelezd ezt a hibát.</span>'
+      + '</div>';
+  }
+});
 </script>
 </body>
 </html>
