@@ -89,10 +89,10 @@ function App() {
       setData(parseCsv(text));
       setIsSetup(false);
       localStorage.setItem("dashboard_url", targetUrl);
-    } catch (e) { alert("Hiba az adatok betöltésekor!"); }
+    } catch (err) { alert("Hiba az adatok betöltésekor!"); }
   }, []);
 
-  useEffect(() => { if (url && !isSetup) loadData(url); }, [loadData]);
+  useEffect(() => { if (url && !isSetup) loadData(url); }, [loadData, isSetup, url]);
 
   if (isSetup) {
     return e("div", {style: {padding: "100px 20px", maxWidth: 600, margin: "0 auto"}},
@@ -100,7 +100,7 @@ function App() {
       e("p", {style: {color: "#888", marginBottom: 30}}, "Másold be a Google Sheets CSV linket az indításhoz."),
       e("input", {
         style: {width: "100%", padding: 16, background: "#111", border: "1px solid #333", color: "#fff", borderRadius: 12, marginBottom: 16, outline: "none", fontSize: 14},
-        value: url, onChange: e => setUrl(e.target.value), placeholder: "https://docs.google.com/..."
+        value: url, onChange: ev => setUrl(ev.target.value), placeholder: "https://docs.google.com/..."
       }),
       e("button", {
         style: {width: "100%", padding: 16, background: COLORS.blue, border: "none", borderRadius: 12, fontWeight: "900", cursor: "pointer", color: "#000", fontSize: 16},
@@ -116,7 +116,6 @@ function App() {
   const total_eur = total_huf / 400;
 
   return e("div", null,
-    // HEADER
     e("div", {style: {marginBottom: 32}},
       e("div", {className: "label", style: {color: "#666", marginBottom: 4}}, "Mikor érem el? — €350K és €500K"),
       e("div", {className: "grid grid-2"},
@@ -133,7 +132,6 @@ function App() {
       )
     ),
 
-    // PORTFOLIO ANALYSIS
     e("div", {style: {marginBottom: 32}},
       e("div", {className: "label", style: {color: "#666", marginBottom: 12}}, "Portfólió elemzés · " + (data.updated || "2026. június")),
       e("div", {className: "grid grid-2"},
@@ -152,9 +150,9 @@ function App() {
             ),
             e("div", {style: {width: "50%", paddingLeft: 20, fontSize: 13}},
               [
-                {l: "MÁP (3 kötvény)", p: (map_total/total_huf*100).toFixed(1), v: fE(map_total/400), c: COLORS.blue},
-                {l: "Fundamenta LTP", p: (data.fund_huf/total_huf*100).toFixed(1), v: fE(data.fund_huf/400), c: COLORS.yellow},
-                {l: "ETF + Készpénz", p: ((data.etf_huf/total_huf*100) + 1.5).toFixed(1), v: fE(data.etf_huf/400), c: COLORS.green}
+                {l: "MÁP (3 kötvény)", p: (map_total/total_huf*100).toFixed(1), c: COLORS.blue},
+                {l: "Fundamenta LTP", p: (data.fund_huf/total_huf*100).toFixed(1), c: COLORS.yellow},
+                {l: "ETF + Készpénz", p: ((data.etf_huf/total_huf*100) + 1.5).toFixed(1), c: COLORS.green}
               ].map(item => e("div", {key: item.l, style: {marginBottom: 10, display: "flex", justifyContent: "space-between"}},
                 e("span", {style: {color: item.c}}, "● " + item.l),
                 e("span", {className: "mono"}, item.p + "%")
@@ -183,7 +181,6 @@ function App() {
       )
     ),
 
-    // RISK & STRATEGY
     e("div", {className: "grid grid-4", style: {marginBottom: 32}},
       [
         {t: "Devizakitettség", l: "HUF (MÁP + Fundamenta)", p: 85, c: COLORS.yellow, d: "85% HUF kitettség. Minden 1% gyengülés ~0.85% EUR-értékvesztést okoz."},
@@ -192,13 +189,12 @@ function App() {
         {t: "ETF összetétel", l: "Súlyozott USA-kitettség", p: 78, c: COLORS.purple, d: "78% USA súly. IUSQ-ra koncentrálás javasolt."}
       ].map(item => e("div", {className: "card", key: item.t},
         e("div", {className: "label", style: {marginBottom: 12, color: item.c}}, item.t),
-        e("div", {className: "flex justify-between", style: {fontSize: 12, marginBottom: 4}}, e("span", null, item.l), e("span", {className: "mono"}}, item.p + "%")),
+        e("div", {className: "flex justify-between", style: {fontSize: 12, marginBottom: 4}}, e("span", null, item.l), e("span", {className: "mono"}, item.p + "%")),
         e("div", {className: "progress-bg"}, e("div", {className: "progress-fill", style: {width: item.p + "%", background: item.c}})),
         e("div", {style: {fontSize: 10, marginTop: 12, color: "#888", lineHeight: 1.4}}, item.d)
       ))
     ),
 
-    // STRATEGIC NOTES
     e("div", {className: "card", style: {marginBottom: 32}},
       e("div", {className: "label", style: {marginBottom: 20}}, "Stratégiai megjegyzések a nagy célhoz"),
       [
@@ -215,7 +211,6 @@ function App() {
       ))
     ),
 
-    // FOOTER
     e("div", {style: {textAlign: "center", borderTop: "1px solid #222", paddingTop: 20}},
       e("button", {
         style: {background: "none", border: "none", color: "#444", fontSize: 11, cursor: "pointer", textDecoration: "underline"},
