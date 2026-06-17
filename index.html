@@ -4,14 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portfólió Dashboard</title>
-<!-- React és ReactDOM frissítése stabil 18.2.0-ra -->
+<!-- Stabil UMD verziók használata -->
 <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
-<!-- Prop-types explicit betöltése, mert a Recharts UMD-nek szüksége van rá -->
 <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-<!-- Recharts frissítése a legújabb stabil verzióra -->
-<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
-<!-- Babel standalone frissítése -->
+<script crossorigin src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
 <script crossorigin src="https://unpkg.com/@babel/standalone@7.23.11/babel.min.js"></script>
 
 <style>
@@ -21,29 +18,28 @@
   input::placeholder { color: #44444e; }
   button { font-family: inherit; }
   pre { white-space: pre-wrap; word-wrap: break-word; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #252525; }
 </style>
 </head>
 <body>
 <div id="root"></div>
 
-<script type="text/babel" data-presets="env,react">
-// Biztosítjuk, hogy a Recharts megtalálja a PropTypes-t, ha globálisan keresné
-window.PropTypes = window.PropTypes || PropTypes;
-
+<!-- CSAK 'react' preset használata, hogy elkerüljük a modul-hibát -->
+<script type="text/babel" data-presets="react">
 const { useState, useEffect, useCallback, useMemo } = React;
 const { 
   AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, 
-  CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar 
+  CartesianGrid, Tooltip, ResponsiveContainer 
 } = Recharts;
 
 const T = {
-  bg:"#0a0a0a", card:"#111111", card2:"#181818", card3:"#1e1e1e",
-  border:"#252525", text:"#f0f0f0", sec:"#a0a0a8", ter:"#666672", dim:"#44444e",
+  bg:"#0a0a0a", card:"#111111", card2:"#181818", border:"#252525", 
+  text:"#f0f0f0", sec:"#a0a0a8", ter:"#666672", dim:"#44444e",
   yellow:"#f59e0b", blue:"#60a5fa", green:"#34d399", red:"#f87171", purple:"#a78bfa", cyan:"#22d3ee"
 };
 
 const mono = { fontFamily:"'SF Mono','Fira Code',monospace" };
-const crd  = { background:T.card,  border:`1px solid ${T.border}`, borderRadius:12, padding:16 };
 
 const DEMO = {
   updated:"2026-06-16",
@@ -61,31 +57,20 @@ const DEMO = {
   h4_eur:36935.42, h5_eur:38635.77, h6_eur:40592.63,
 };
 
-const GOALS = [
-  {lbl:"€50K",  eur:50000,   cat:"STEP"},
-  {lbl:"€70K",  eur:70000,   cat:"STEP"},
-  {lbl:"€85K",  eur:85000,   cat:"LIL"},
-  {lbl:"€100K", eur:100000,  cat:"LIL"},
-  {lbl:"€250K", eur:250000,  cat:"BIG"},
-  {lbl:"€500K", eur:500000,  cat:"BIG"},
-  {lbl:"€800K", eur:800000,  cat:"BIG"},
-  {lbl:"€1M ★", eur:1000000, cat:"DREAM"},
-];
-
-const REFRESH = 1800;
-const HOLDING_COLS = [T.blue, T.cyan, T.green, T.purple, T.yellow];
+const fE = v => v>=1e6?`€${(v/1e6).toFixed(2)}M`:`€${Math.round(v).toLocaleString("hu-HU")}`;
+const fH = v => v>=1e6?`${(v/1e6).toFixed(2)}M Ft`:`${Math.round(v/1e3)}K Ft`;
+const fU = v => `$${Math.round(v).toLocaleString()}`;
 
 function parseCsv(text) {
   const obj = {};
   if (!text) return obj;
-  text.trim().split("\n").forEach(row => {
-    const [k, ...rest] = row.split(",");
-    if (!k) return;
-    const key = k.trim();
-    let val = rest.join(",").replace(/^"|"$/g,"").trim();
+  text.split("\n").forEach(row => {
+    const parts = row.split(",");
+    if (parts.length < 2) return;
+    const key = parts[0].trim();
+    let val = parts.slice(1).join(",").replace(/^"|"$/g,"").trim();
     if (key === "updated") { obj[key] = val; return; }
-    let cleaned = val.replace(/[€$]/g,"").replace(/Ft/g,"").replace(/%/g,"").replace(/[\s\u00A0]/g,"");
-    cleaned = cleaned.replace(/,/g, ".");
+    let cleaned = val.replace(/[€$]/g,"").replace(/Ft/g,"").replace(/%/g,"").replace(/[\s\u00A0]/g,"").replace(/,/g, ".");
     const num = parseFloat(cleaned);
     obj[key] = isNaN(num) ? val : num;
   });
@@ -93,327 +78,147 @@ function parseCsv(text) {
 }
 
 function buildData(raw) {
-  if (!raw) return null;
   const holdings = [
-    {ticker:"SPYL",db:raw.spyl_db||0,eur:raw.spyl_eur||0,gain:raw.spyl_gain||0,tbsz:"TBSZ26"},
-    {ticker:"IUSQ",db:raw.iusq_db||0,eur:raw.iusq_eur||0,gain:raw.iusq_gain||0,tbsz:"TBSZ26"},
-    {ticker:"VUAA",db:raw.vuaa_db||0,eur:raw.vuaa_eur||0,gain:raw.vuaa_gain||0,tbsz:"TBSZ25"},
-    {ticker:"IWDA",db:raw.iwda_db||0,eur:raw.iwda_eur||0,gain:raw.iwda_gain||0,tbsz:"TBSZ25"},
-    {ticker:"EMIM",db:raw.emim_db||0,eur:raw.emim_eur||0,gain:raw.emim_gain||0,tbsz:"TBSZ25"},
-  ].map((h,i) => ({...h, col:HOLDING_COLS[i % HOLDING_COLS.length]}));
-
-  const mos = ["jan '26","feb '26","már '26","ápr '26","máj '26","jún '26","júl '26","aug '26","szep '26","okt '26","nov '26","dec '26"];
+    {ticker:"SPYL",db:raw.spyl_db||0,eur:raw.spyl_eur||0,gain:raw.spyl_gain||0},
+    {ticker:"IUSQ",db:raw.iusq_db||0,eur:raw.iusq_eur||0,gain:raw.iusq_gain||0},
+    {ticker:"VUAA",db:raw.vuaa_db||0,eur:raw.vuaa_eur||0,gain:raw.vuaa_gain||0},
+    {ticker:"IWDA",db:raw.iwda_db||0,eur:raw.iwda_eur||0,gain:raw.iwda_gain||0},
+    {ticker:"EMIM",db:raw.emim_db||0,eur:raw.emim_eur||0,gain:raw.emim_gain||0},
+  ];
+  const mos = ["jan","feb","már","ápr","máj","jún","júl","aug","szep","okt","nov","dec"];
   const history = [1,2,3,4,5,6,7,8,9,10,11,12]
     .map(i => ({mo: mos[i-1], eur: raw[`h${i}_eur`]||0}))
     .filter(h => h.eur > 0);
-
-  return {
-    updated:    raw.updated || "—",
-    nw_huf:     raw.nw_huf     || 0,
-    nw_eur:     raw.nw_eur     || 0,
-    nw_usd:     raw.nw_usd     || 0,
-    nw_prev_huf:raw.nw_prev_huf|| 0,
-    nw_prev_eur:raw.nw_prev_eur|| 0,
-    map_total:  raw.map_total  || 0,
-    map_kt:     raw.map_kt     || 0,
-    map_fix3:   raw.map_fix3   || 0,
-    map_fix5:   raw.map_fix5   || 0,
-    etf_huf:    raw.etf_huf    || 0,
-    etf_eur:    raw.etf_eur    || 0,
-    etf_gain:   raw.etf_gain   || 0,
-    fund_huf:   raw.fund_huf   || 0,
-    cash_eur:   raw.cash_eur   || 0,
-    brutto:     raw.brutto     || 0,
-    netto:      raw.netto      || 0,
-    savings_mo: raw.savings_mo || 0,
-    holdings, history,
-  };
-}
-
-const fE = v => v>=1e6?`€${(v/1e6).toFixed(2)}M`:`€${Math.round(v).toLocaleString("hu-HU")}`;
-const fH = v => v>=1e6?`${(v/1e6).toFixed(2)}M Ft`:`${Math.round(v/1e3)}K Ft`;
-const fU = v => `$${Math.round(v).toLocaleString()}`;
-
-function Badge({a,b}) {
-  if (!b) return null;
-  const d = ((a-b)/b*100).toFixed(1);
-  const up = d >= 0;
-  return <span style={{fontSize:11,padding:"2px 7px",borderRadius:20,...mono,background:up?`${T.green}22`:`${T.red}22`,color:up?T.green:T.red}}>{up?"+":""}{d}%</span>;
-}
-
-const CTip = ({active,payload,label,fmt}) => {
-  if (!active||!payload?.length) return null;
-  return (
-    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 12px",fontSize:12,color:T.text}}>
-      <div style={{color:T.ter,marginBottom:3}}>{label}</div>
-      {payload.map((p,i)=><div key={i} style={{color:p.color||T.text,...mono}}>{fmt(p.value)}</div>)}
-    </div>
-  );
-};
-
-const TEMPLATE = `nw_huf,14234199
-nw_eur,40653.40
-nw_usd,47224.20
-nw_prev_huf,10323472
-nw_prev_eur,26642.93
-map_total,9754505
-map_kt,1300000
-map_fix3,5050000
-map_fix5,3404505
-etf_huf,2159109
-etf_eur,6166.49
-etf_gain,9.33
-fund_huf,2100000
-cash_eur,630
-brutto,741000
-netto,492765
-savings_mo,600000
-spyl_db,155
-spyl_eur,2481.55
-spyl_gain,6.52
-iusq_db,23
-iusq_eur,2417.98
-iusq_gain,7.92
-vuaa_db,4
-vuaa_eur,501.42
-vuaa_gain,18.19
-iwda_db,4
-iwda_eur,495.36
-iwda_gain,16.17
-emim_db,3
-emim_eur,147.03
-emim_gain,37.64
-h1_eur,32077.97
-h2_eur,33950.10
-h3_eur,35134.65
-h4_eur,36935.42
-h5_eur,38635.77
-h6_eur,40592.63
-updated,2026-06-16`;
-
-function Setup({onSave}) {
-  const [url, setUrl] = useState(localStorage.getItem("dashboard_url") || "");
-  const valid = url.includes("docs.google.com") || url.includes("output=csv");
-  
-  const handleSave = () => {
-    localStorage.setItem("dashboard_url", url);
-    onSave(url);
-  };
-
-  return (
-    <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{maxWidth:520,width:"100%",color:T.text}}>
-        <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>📊 Portfólió Dashboard</div>
-        <div style={{fontSize:14,color:T.ter,marginBottom:24}}>Google Sheets alapú vagyonkövető dashboard</div>
-
-        {[
-          {n:1,c:T.blue,  h:"Google Sheets előkészítése",  b:"Nyisd meg a táblázatodat a Google Táblázatokban."},
-          {n:2,c:T.cyan,  h:"LIVE lap létrehozása", b:"Hozz létre egy 'LIVE' nevű munkalapot, és másold be a lenti sablont."},
-          {n:3,c:T.green, h:"Közzététel a weben",          b:"Fájl → Megosztás → Közzététel a weben → Válaszd a 'LIVE' lapot és a 'CSV' formátumot."},
-          {n:4,c:T.yellow,h:"URL beillesztése",          b:"Másold ki a kapott linket és illeszd be lent."},
-        ].map(s=>(
-          <div key={s.n} style={{display:"flex",gap:16,marginBottom:16}}>
-            <div style={{width:28,height:28,borderRadius:"50%",background:`${s.c}20`,border:`1px solid ${s.c}50`,color:s.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{s.n}</div>
-            <div>
-              <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>{s.h}</div>
-              <div style={{fontSize:12,color:T.ter,lineHeight:1.5}}>{s.b}</div>
-            </div>
-          </div>
-        ))}
-
-        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:16,marginBottom:20}}>
-          <div style={{fontSize:11,color:T.yellow,fontWeight:600,marginBottom:8,textTransform:"uppercase"}}>LIVE lap sablon (A1 cellától)</div>
-          <pre style={{fontSize:11,color:T.sec,...mono,margin:0,maxHeight:150,overflowY:"auto"}}>{TEMPLATE}</pre>
-        </div>
-
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:12,color:T.sec,marginBottom:8}}>Közzétett CSV URL</div>
-          <input value={url} onChange={e=>setUrl(e.target.value)}
-            placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=...&output=csv"
-            style={{width:"100%",background:T.card2,border:`1px solid ${valid?T.blue:T.border}`,borderRadius:8,padding:"12px",fontSize:12,color:T.text,outline:"none",...mono}}/>
-        </div>
-        
-        <div style={{display:"flex",gap:12}}>
-          <button onClick={handleSave} disabled={!valid} style={{
-            flex:1,padding:"12px",borderRadius:8,fontSize:14,fontWeight:600,cursor:valid?"pointer":"not-allowed",
-            background:valid?T.blue:`${T.blue}40`,color:valid?"#000":T.dim,border:"none"
-          }}>Dashboard megnyitása</button>
-          <button onClick={()=>onSave("__demo__")} style={{
-            padding:"12px 20px",borderRadius:8,fontSize:14,cursor:"pointer",
-            background:`${T.yellow}20`,color:T.yellow,border:`1px solid ${T.yellow}40`
-          }}>Demo mód</button>
-        </div>
-      </div>
-    </div>
-  );
+  return { ...raw, holdings, history };
 }
 
 function App() {
-  const [sheetUrl, setSheetUrl] = useState(null);
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
-  const [cd,      setCd]      = useState(REFRESH);
-  const [cur,     setCur]     = useState("EUR");
+  const [url, setUrl] = useState(localStorage.getItem("dashboard_url") || "");
+  const [data, setData] = useState(null);
+  const [isSetup, setIsSetup] = useState(!localStorage.getItem("dashboard_url"));
+  const [cur, setCur] = useState("EUR");
 
-  const load = useCallback(async (url) => {
-    if (!url) return;
-    if (url === "__demo__") { setData(buildData(DEMO)); return; }
-    setLoading(true); setError(null);
-    try {
-      const resp = await fetch(url, {cache:"no-cache"});
-      if (!resp.ok) throw new Error(`Hiba: ${resp.status}`);
-      const text = await resp.text();
-      const parsed = parseCsv(text);
-      const built = buildData(parsed);
-      setData(built);
-      setCd(REFRESH);
-    } catch(e) {
-      console.error(e);
-      setError(e.message);
-      if (!data) setData(buildData(DEMO));
-    } finally {
-      setLoading(false);
+  const loadData = useCallback(async (targetUrl) => {
+    if (targetUrl === "__demo__") {
+      setData(buildData(DEMO));
+      setIsSetup(false);
+      return;
     }
-  }, [data]);
-
-  const setup = useCallback((url) => { 
-    setSheetUrl(url); 
-    load(url); 
-  }, [load]);
+    try {
+      const resp = await fetch(targetUrl);
+      const text = await resp.text();
+      setData(buildData(parseCsv(text)));
+      setIsSetup(false);
+      localStorage.setItem("dashboard_url", targetUrl);
+    } catch (e) {
+      alert("Hiba az adatok betöltésekor. Ellenőrizd a linket!");
+    }
+  }, []);
 
   useEffect(() => {
-    if (!sheetUrl) return;
-    const t = setInterval(() => {
-      setCd(c => {
-        if (c <= 1) {
-          load(sheetUrl);
-          return REFRESH;
-        }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [sheetUrl, load]);
+    if (url && !isSetup) loadData(url);
+  }, []);
 
-  if (!sheetUrl) return <Setup onSave={setup}/>;
-  if (!data) return <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",color:T.sec}}>Betöltés...</div>;
+  if (isSetup) {
+    return (
+      <div style={{padding: "40px 20px", maxWidth: 500, margin: "0 auto"}}>
+        <h1 style={{fontSize: 24, marginBottom: 10}}>📊 Dashboard Setup</h1>
+        <p style={{color: T.ter, fontSize: 14, marginBottom: 20}}>Másold be a Google Sheets CSV linket:</p>
+        <input 
+          style={{width: "100%", padding: 12, background: T.card, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, marginBottom: 16}}
+          value={url} onChange={e => setUrl(e.target.value)} placeholder="https://docs.google.com/..."
+        />
+        <div style={{display: "flex", gap: 10}}>
+          <button style={{flex: 1, padding: 12, background: T.blue, border: "none", borderRadius: 8, fontWeight: "bold", cursor: "pointer"}} onClick={() => loadData(url)}>Mehet</button>
+          <button style={{padding: 12, background: T.card2, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, cursor: "pointer"}} onClick={() => loadData("__demo__")}>Demo</button>
+        </div>
+      </div>
+    );
+  }
 
-  const isDemo = sheetUrl === "__demo__";
-  const nwV = () => cur==="EUR"?data.nw_eur:cur==="USD"?data.nw_usd:data.nw_huf;
-  const nwP = () => cur==="EUR"?data.nw_prev_eur:cur==="USD"?(data.nw_prev_huf/311.21):data.nw_prev_huf;
-  const nwF = v  => cur==="EUR"?fE(v):cur==="USD"?fU(v):fH(v);
+  if (!data) return <div style={{padding: 40, textAlign: "center"}}>Betöltés...</div>;
 
-  const alloc = [
-    {name:"MÁP",       huf:data.map_total,                    col:T.blue},
-    {name:"Fundamenta",huf:data.fund_huf,                     col:T.yellow},
-    {name:"ETF",       huf:data.etf_huf,                      col:T.green},
-    {name:"Készpénz",  huf:Math.round(data.cash_eur*400),      col:T.dim},
-  ];
-
-  const mins = Math.floor(cd/60), secs = cd%60;
+  const val = cur === "EUR" ? data.nw_eur : cur === "USD" ? data.nw_usd : data.nw_huf;
+  const fmt = cur === "EUR" ? fE : cur === "USD" ? fU : fH;
 
   return (
-    <div style={{background:T.bg,color:T.text,padding:"24px 0",minHeight:"100vh"}}>
-      {/* HEADER */}
-      <div style={{display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:32}}>
+    <div style={{padding: "24px 0"}}>
+      <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 30}}>
         <div>
-          <div style={{fontSize:12,color:T.ter,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>
-            Összesített vagyon · {data.updated}
-            {isDemo ? <span style={{marginLeft:12,color:T.yellow}}>◆ DEMO</span> : <span style={{marginLeft:12,color:T.green}}>● LIVE</span>}
-          </div>
-          <div style={{fontSize:32,fontWeight:800,...mono}}>{nwF(nwV())}</div>
-          <div style={{display:"flex",alignItems:"center",gap:12,marginTop:8}}>
-            <Badge a={nwV()} b={nwP()}/>
-            <span style={{fontSize:12,color:T.ter}}>Előző időszakhoz képest</span>
-          </div>
+          <div style={{fontSize: 12, color: T.ter, textTransform: "uppercase"}}>Összvagyon · {data.updated}</div>
+          <div style={{fontSize: 32, fontWeight: 800, ...mono}}>{fmt(val)}</div>
         </div>
-        
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
-          <div style={{display:"flex",background:T.card,border:`1px solid ${T.border}`,borderRadius:8,overflow:"hidden"}}>
-            {["EUR","HUF","USD"].map(c=>(
-              <button key={c} onClick={()=>setCur(c)} style={{
-                padding:"6px 16px",fontSize:12,fontWeight:600,cursor:"pointer",
-                background:cur===c?T.blue:"transparent",color:cur===c?"#000":T.ter,border:"none"
-              }}>{c}</button>
-            ))}
-          </div>
-          <div style={{fontSize:11,color:T.dim,...mono}}>
-            Frissítés: {loading ? "..." : `${mins}:${secs.toString().padStart(2,"0")}`}
-          </div>
+        <div style={{display: "flex", background: T.card, borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`}}>
+          {["EUR", "HUF", "USD"].map(c => (
+            <button key={c} onClick={() => setCur(c)} style={{padding: "8px 16px", border: "none", background: cur === c ? T.blue : "transparent", color: cur === c ? "#000" : "#fff", cursor: "pointer", fontWeight: "bold"}}>{c}</button>
+          ))}
         </div>
       </div>
 
-      {/* CHARTS */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(300px, 1fr))",gap:20,marginBottom:24}}>
-        <div style={crd}>
-          <div style={{fontSize:14,fontWeight:600,marginBottom:16,color:T.sec}}>Vagyon alakulása (EUR)</div>
-          <div style={{height:200}}>
+      <div style={{display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginBottom: 30}}>
+        <div style={{background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}}>
+          <div style={{marginBottom: 15, fontSize: 14, color: T.sec}}>Vagyon alakulása (EUR)</div>
+          <div style={{height: 200}}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.history}>
-                <defs>
-                  <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={T.blue} stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor={T.blue} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                <XAxis dataKey="mo" hide />
+                <CartesianGrid strokeDasharray="3 3" stroke="#252525" vertical={false} />
+                <XAxis dataKey="mo" stroke="#666" fontSize={10} />
                 <YAxis hide domain={['auto', 'auto']} />
-                <Tooltip content={<CTip fmt={fE} />} />
-                <Area type="monotone" dataKey="eur" stroke={T.blue} fillOpacity={1} fill="url(#g)" strokeWidth={2} />
+                <Tooltip contentStyle={{background: "#111", border: "1px solid #333"}} />
+                <Area type="monotone" dataKey="eur" stroke={T.blue} fill={T.blue} fillOpacity={0.1} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
-
-        <div style={crd}>
-          <div style={{fontSize:14,fontWeight:600,marginBottom:16,color:T.sec}}>Eszközallokáció</div>
-          <div style={{height:200}}>
+        <div style={{background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}}>
+          <div style={{marginBottom: 15, fontSize: 14, color: T.sec}}>Eszközök (HUF)</div>
+          <div style={{height: 200}}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={alloc} dataKey="huf" nameKey="name" innerRadius={60} outerRadius={80} paddingAngle={5} stroke="none">
-                  {alloc.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.col} />)}
+                <Pie 
+                  data={[
+                    {n: "MÁP", v: data.map_total}, 
+                    {n: "Fundamenta", v: data.fund_huf}, 
+                    {n: "ETF", v: data.etf_huf}, 
+                    {n: "Készpénz", v: data.cash_eur * 400}
+                  ]} 
+                  dataKey="v" nameKey="n" innerRadius={60} outerRadius={80} stroke="none"
+                >
+                  <Cell fill={T.blue} /><Cell fill={T.yellow} /><Cell fill={T.green} /><Cell fill={T.dim} />
                 </Pie>
-                <Tooltip content={<CTip fmt={fH} />} />
+                <Tooltip />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* HOLDINGS */}
-      <div style={crd}>
-        <div style={{fontSize:14,fontWeight:600,marginBottom:16,color:T.sec}}>ETF Portfólió</div>
-        <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+      <div style={{background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}}>
+        <div style={{marginBottom: 15, fontSize: 14, color: T.sec}}>ETF Portfólió</div>
+        <div style={{overflowX: "auto"}}>
+          <table>
             <thead>
-              <tr style={{textAlign:"left",borderBottom:`1px solid ${T.border}`,color:T.ter}}>
-                <th style={{padding:"8px 4px"}}>Ticker</th>
-                <th style={{padding:"8px 4px"}}>Mennyiség</th>
-                <th style={{padding:"8px 4px"}}>Érték (EUR)</th>
-                <th style={{padding:"8px 4px"}}>Profit</th>
+              <tr style={{color: T.ter, fontSize: 12}}>
+                <th>Ticker</th><th>Db</th><th>Érték (EUR)</th><th>Profit</th>
               </tr>
             </thead>
-            <tbody>
-              {data.holdings.map(h=>(
-                <tr key={h.ticker} style={{borderBottom:`1px solid ${T.border}44`}}>
-                  <td style={{padding:"12px 4px",fontWeight:600}}>{h.ticker}</td>
-                  <td style={{padding:"12px 4px",...mono}}>{h.db}</td>
-                  <td style={{padding:"12px 4px",...mono}}>{fE(h.eur)}</td>
-                  <td style={{padding:"12px 4px",color:h.gain>=0?T.green:T.red,...mono}}>
-                    {h.gain>=0?"+":""}{h.gain}%
-                  </td>
+            <tbody style={{fontSize: 14}}>
+              {data.holdings.map(h => (
+                <tr key={h.ticker}>
+                  <td style={{fontWeight: "bold"}}>{h.ticker}</td>
+                  <td style={mono}>{h.db}</td>
+                  <td style={mono}>{fE(h.eur)}</td>
+                  <td style={{...mono, color: h.gain >= 0 ? T.green : T.red}}>{h.gain >= 0 ? "+" : ""}{h.gain}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      <p style={{textAlign:"center",fontSize:10,color:T.dim,marginTop:32}}>
-        {isDemo ? "◆ Demo mód" : "● Live adatok"} · Utolsó frissítés: {new Date().toLocaleTimeString()}
-      </p>
+      
+      <div style={{marginTop: 30, textAlign: "center"}}>
+        <button style={{background: "none", border: "none", color: T.dim, fontSize: 11, cursor: "pointer", textDecoration: "underline"}} onClick={() => setIsSetup(true)}>Beállítások módosítása</button>
+      </div>
     </div>
   );
 }
