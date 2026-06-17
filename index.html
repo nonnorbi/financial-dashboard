@@ -4,30 +4,44 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portfólió Dashboard</title>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
-<script crossorigin src="https://unpkg.com/recharts@2.1.9/umd/Recharts.js"></script>
-<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- React és ReactDOM frissítése stabil 18.2.0-ra -->
+<script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<!-- Prop-types explicit betöltése, mert a Recharts UMD-nek szüksége van rá -->
+<script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+<!-- Recharts frissítése a legújabb stabil verzióra -->
+<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<!-- Babel standalone frissítése -->
+<script crossorigin src="https://unpkg.com/@babel/standalone@7.23.11/babel.min.js"></script>
+
 <style>
   * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; background:#0a0a0a; }
+  html, body { margin:0; padding:0; background:#0a0a0a; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif; }
   body { max-width: 900px; margin: 0 auto; padding: 0 16px; }
   input::placeholder { color: #44444e; }
   button { font-family: inherit; }
+  pre { white-space: pre-wrap; word-wrap: break-word; }
 </style>
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useCallback } = React;
-const { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+
+<script type="text/babel" data-presets="env,react">
+// Biztosítjuk, hogy a Recharts megtalálja a PropTypes-t, ha globálisan keresné
+window.PropTypes = window.PropTypes || PropTypes;
+
+const { useState, useEffect, useCallback, useMemo } = React;
+const { 
+  AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, 
+  CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar 
+} = Recharts;
 
 const T = {
   bg:"#0a0a0a", card:"#111111", card2:"#181818", card3:"#1e1e1e",
   border:"#252525", text:"#f0f0f0", sec:"#a0a0a8", ter:"#666672", dim:"#44444e",
   yellow:"#f59e0b", blue:"#60a5fa", green:"#34d399", red:"#f87171", purple:"#a78bfa", cyan:"#22d3ee"
 };
+
 const mono = { fontFamily:"'SF Mono','Fira Code',monospace" };
 const crd  = { background:T.card,  border:`1px solid ${T.border}`, borderRadius:12, padding:16 };
 
@@ -63,8 +77,10 @@ const HOLDING_COLS = [T.blue, T.cyan, T.green, T.purple, T.yellow];
 
 function parseCsv(text) {
   const obj = {};
+  if (!text) return obj;
   text.trim().split("\n").forEach(row => {
     const [k, ...rest] = row.split(",");
+    if (!k) return;
     const key = k.trim();
     let val = rest.join(",").replace(/^"|"$/g,"").trim();
     if (key === "updated") { obj[key] = val; return; }
@@ -77,13 +93,14 @@ function parseCsv(text) {
 }
 
 function buildData(raw) {
+  if (!raw) return null;
   const holdings = [
     {ticker:"SPYL",db:raw.spyl_db||0,eur:raw.spyl_eur||0,gain:raw.spyl_gain||0,tbsz:"TBSZ26"},
     {ticker:"IUSQ",db:raw.iusq_db||0,eur:raw.iusq_eur||0,gain:raw.iusq_gain||0,tbsz:"TBSZ26"},
     {ticker:"VUAA",db:raw.vuaa_db||0,eur:raw.vuaa_eur||0,gain:raw.vuaa_gain||0,tbsz:"TBSZ25"},
     {ticker:"IWDA",db:raw.iwda_db||0,eur:raw.iwda_eur||0,gain:raw.iwda_gain||0,tbsz:"TBSZ25"},
     {ticker:"EMIM",db:raw.emim_db||0,eur:raw.emim_eur||0,gain:raw.emim_gain||0,tbsz:"TBSZ25"},
-  ].map((h,i) => ({...h, col:HOLDING_COLS[i]}));
+  ].map((h,i) => ({...h, col:HOLDING_COLS[i % HOLDING_COLS.length]}));
 
   const mos = ["jan '26","feb '26","már '26","ápr '26","máj '26","jún '26","júl '26","aug '26","szep '26","okt '26","nov '26","dec '26"];
   const history = [1,2,3,4,5,6,7,8,9,10,11,12]
@@ -134,7 +151,6 @@ const CTip = ({active,payload,label,fmt}) => {
   );
 };
 
-// ── SETUP ────────────────────────────────────────────────────────────────────
 const TEMPLATE = `nw_huf,14234199
 nw_eur,40653.40
 nw_usd,47224.20
@@ -176,80 +192,84 @@ h6_eur,40592.63
 updated,2026-06-16`;
 
 function Setup({onSave}) {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(localStorage.getItem("dashboard_url") || "");
   const valid = url.includes("docs.google.com") || url.includes("output=csv");
+  
+  const handleSave = () => {
+    localStorage.setItem("dashboard_url", url);
+    onSave(url);
+  };
+
   return (
-    <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"system-ui"}}>
+    <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{maxWidth:520,width:"100%",color:T.text}}>
-        <div style={{fontSize:20,fontWeight:700,marginBottom:4}}>📊 Portfólió Dashboard – Beállítás</div>
-        <div style={{fontSize:12,color:T.ter,marginBottom:22}}>Kapcsold össze a Google Sheets LIVE táblával (ingyenes, automatikus frissítés)</div>
+        <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>📊 Portfólió Dashboard</div>
+        <div style={{fontSize:14,color:T.ter,marginBottom:24}}>Google Sheets alapú vagyonkövető dashboard</div>
 
         {[
-          {n:1,c:T.blue,  h:"salary.xlsx → Google Sheets",  b:"Drive-ban: jobb kattintás → Megnyitás → Google Táblázatok"},
-          {n:2,c:T.cyan,  h:"Hozz létre egy \"LIVE\" nevű lapot", b:"Legalul + gomb → nevezd LIVE-nak → illeszd be a lenti sablont A1-től"},
-          {n:3,c:T.green, h:"Tedd közzé CSV-ként",          b:"Fájl → Megosztás → Közzététel a weben → LIVE lap → CSV formátum → Közzétesz"},
-          {n:4,c:T.yellow,h:"Illeszd be az URL-t",          b:"Másold a kapott linket és illeszd be lent"},
+          {n:1,c:T.blue,  h:"Google Sheets előkészítése",  b:"Nyisd meg a táblázatodat a Google Táblázatokban."},
+          {n:2,c:T.cyan,  h:"LIVE lap létrehozása", b:"Hozz létre egy 'LIVE' nevű munkalapot, és másold be a lenti sablont."},
+          {n:3,c:T.green, h:"Közzététel a weben",          b:"Fájl → Megosztás → Közzététel a weben → Válaszd a 'LIVE' lapot és a 'CSV' formátumot."},
+          {n:4,c:T.yellow,h:"URL beillesztése",          b:"Másold ki a kapott linket és illeszd be lent."},
         ].map(s=>(
-          <div key={s.n} style={{display:"flex",gap:12,marginBottom:12}}>
-            <div style={{width:24,height:24,borderRadius:"50%",background:`${s.c}20`,border:`1px solid ${s.c}50`,color:s.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{s.n}</div>
+          <div key={s.n} style={{display:"flex",gap:16,marginBottom:16}}>
+            <div style={{width:28,height:28,borderRadius:"50%",background:`${s.c}20`,border:`1px solid ${s.c}50`,color:s.c,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{s.n}</div>
             <div>
-              <div style={{fontSize:12,fontWeight:500,color:T.text,marginBottom:1}}>{s.h}</div>
-              <div style={{fontSize:11,color:T.ter,lineHeight:1.5}}>{s.b}</div>
+              <div style={{fontSize:14,fontWeight:600,color:T.text,marginBottom:2}}>{s.h}</div>
+              <div style={{fontSize:12,color:T.ter,lineHeight:1.5}}>{s.b}</div>
             </div>
           </div>
         ))}
 
-        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:12,marginBottom:14}}>
-          <div style={{fontSize:10,color:T.yellow,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>LIVE lap sablon – másold be az A1 cellától</div>
-          <pre style={{fontSize:10,color:T.sec,...mono,margin:0,lineHeight:1.6,overflowX:"auto",maxHeight:200,overflowY:"auto"}}>{TEMPLATE}</pre>
-          <div style={{fontSize:10,color:T.dim,marginTop:6}}>💡 Pro tip: DBA-ként könnyen megvalósítható, hogy a főlapodból képletek húzzák ezeket az értékeket, és akkor valóban automatikus lesz.</div>
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:12,padding:16,marginBottom:20}}>
+          <div style={{fontSize:11,color:T.yellow,fontWeight:600,marginBottom:8,textTransform:"uppercase"}}>LIVE lap sablon (A1 cellától)</div>
+          <pre style={{fontSize:11,color:T.sec,...mono,margin:0,maxHeight:150,overflowY:"auto"}}>{TEMPLATE}</pre>
         </div>
 
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,color:T.sec,marginBottom:5}}>Közzétett CSV URL</div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,color:T.sec,marginBottom:8}}>Közzétett CSV URL</div>
           <input value={url} onChange={e=>setUrl(e.target.value)}
             placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=...&output=csv"
-            style={{width:"100%",boxSizing:"border-box",background:T.card2,border:`1px solid ${valid?T.blue:T.border}`,borderRadius:8,padding:"10px 12px",fontSize:11,color:T.text,outline:"none",...mono}}/>
+            style={{width:"100%",background:T.card2,border:`1px solid ${valid?T.blue:T.border}`,borderRadius:8,padding:"12px",fontSize:12,color:T.text,outline:"none",...mono}}/>
         </div>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>onSave(url)} disabled={!valid} style={{
-            flex:1,padding:"10px",borderRadius:8,fontSize:13,fontWeight:600,cursor:valid?"pointer":"not-allowed",
-            background:valid?T.blue:`${T.blue}30`,color:valid?"#000":T.dim,border:"none"
-          }}>Dashboard megnyitása →</button>
+        
+        <div style={{display:"flex",gap:12}}>
+          <button onClick={handleSave} disabled={!valid} style={{
+            flex:1,padding:"12px",borderRadius:8,fontSize:14,fontWeight:600,cursor:valid?"pointer":"not-allowed",
+            background:valid?T.blue:`${T.blue}40`,color:valid?"#000":T.dim,border:"none"
+          }}>Dashboard megnyitása</button>
           <button onClick={()=>onSave("__demo__")} style={{
-            padding:"10px 14px",borderRadius:8,fontSize:12,cursor:"pointer",
-            background:`${T.yellow}18`,color:T.yellow,border:`1px solid ${T.yellow}35`
-          }}>Demo</button>
+            padding:"12px 20px",borderRadius:8,fontSize:14,cursor:"pointer",
+            background:`${T.yellow}20`,color:T.yellow,border:`1px solid ${T.yellow}40`
+          }}>Demo mód</button>
         </div>
-        <p style={{fontSize:10,color:T.dim,textAlign:"center",marginTop:8}}>Az URL a böngésző memóriájában marad, sehova sem kerül elküldésre.</p>
       </div>
     </div>
   );
 }
 
-// ── MAIN ─────────────────────────────────────────────────────────────────────
 function App() {
   const [sheetUrl, setSheetUrl] = useState(null);
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
-  const [lastUp,  setLastUp]  = useState(null);
   const [cd,      setCd]      = useState(REFRESH);
-  const [tab,     setTab]     = useState("portfolio");
   const [cur,     setCur]     = useState("EUR");
 
   const load = useCallback(async (url) => {
     if (!url) return;
-    if (url === "__demo__") { setData(buildData(DEMO)); setLastUp(new Date()); return; }
+    if (url === "__demo__") { setData(buildData(DEMO)); return; }
     setLoading(true); setError(null);
     try {
       const resp = await fetch(url, {cache:"no-cache"});
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) throw new Error(`Hiba: ${resp.status}`);
       const text = await resp.text();
-      setData(buildData(parseCsv(text)));
-      setLastUp(new Date());
+      const parsed = parseCsv(text);
+      const built = buildData(parsed);
+      setData(built);
       setCd(REFRESH);
     } catch(e) {
+      console.error(e);
       setError(e.message);
       if (!data) setData(buildData(DEMO));
     } finally {
@@ -257,268 +277,149 @@ function App() {
     }
   }, [data]);
 
-  const setup = useCallback((url) => { setSheetUrl(url); load(url); }, [load]);
+  const setup = useCallback((url) => { 
+    setSheetUrl(url); 
+    load(url); 
+  }, [load]);
 
   useEffect(() => {
     if (!sheetUrl) return;
-    const t = setInterval(() => setCd(c => { if (c<=1) { load(sheetUrl); return REFRESH; } return c-1; }), 1000);
+    const t = setInterval(() => {
+      setCd(c => {
+        if (c <= 1) {
+          load(sheetUrl);
+          return REFRESH;
+        }
+        return c - 1;
+      });
+    }, 1000);
     return () => clearInterval(t);
   }, [sheetUrl, load]);
 
   if (!sheetUrl) return <Setup onSave={setup}/>;
-  if (!data)    return <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",color:T.sec,fontFamily:"system-ui",fontSize:13}}>Betöltés...</div>;
+  if (!data) return <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",color:T.sec}}>Betöltés...</div>;
 
   const isDemo = sheetUrl === "__demo__";
   const nwV = () => cur==="EUR"?data.nw_eur:cur==="USD"?data.nw_usd:data.nw_huf;
   const nwP = () => cur==="EUR"?data.nw_prev_eur:cur==="USD"?(data.nw_prev_huf/311.21):data.nw_prev_huf;
   const nwF = v  => cur==="EUR"?fE(v):cur==="USD"?fU(v):fH(v);
-  const hV  = h  => cur==="EUR"?h.eur:cur==="USD"?(h.eur*1.16):(h.eur*350.14);
 
   const alloc = [
     {name:"MÁP",       huf:data.map_total,                    col:T.blue},
     {name:"Fundamenta",huf:data.fund_huf,                     col:T.yellow},
     {name:"ETF",       huf:data.etf_huf,                      col:T.green},
-    {name:"Készpénz",  huf:Math.round(data.cash_eur*350.14),  col:T.dim},
+    {name:"Készpénz",  huf:Math.round(data.cash_eur*400),      col:T.dim},
   ];
-  const totH = alloc.reduce((s,a)=>s+a.huf,0);
+
   const mins = Math.floor(cd/60), secs = cd%60;
 
   return (
-    <div style={{background:T.bg,color:T.text,fontFamily:"system-ui,sans-serif",padding:"16px 0",minHeight:"100vh"}}>
-
+    <div style={{background:T.bg,color:T.text,padding:"24px 0",minHeight:"100vh"}}>
       {/* HEADER */}
-      <div style={{display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:14}}>
+      <div style={{display:"flex",flexWrap:"wrap",justifyContent:"space-between",alignItems:"flex-start",gap:16,marginBottom:32}}>
         <div>
-          <div style={{fontSize:10,color:T.ter,textTransform:"uppercase",letterSpacing:".08em",marginBottom:3}}>
-            Portfólió · {data.updated}
-            {isDemo
-              ? <span style={{marginLeft:8,color:T.yellow}}>◆ DEMO</span>
-              : <span style={{marginLeft:8,color:T.green}}>● LIVE</span>
-            }
+          <div style={{fontSize:12,color:T.ter,textTransform:"uppercase",letterSpacing:".1em",marginBottom:4}}>
+            Összesített vagyon · {data.updated}
+            {isDemo ? <span style={{marginLeft:12,color:T.yellow}}>◆ DEMO</span> : <span style={{marginLeft:12,color:T.green}}>● LIVE</span>}
           </div>
-          <div style={{fontSize:26,fontWeight:700,...mono}}>{nwF(nwV())}</div>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
+          <div style={{fontSize:32,fontWeight:800,...mono}}>{nwF(nwV())}</div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginTop:8}}>
             <Badge a={nwV()} b={nwP()}/>
-            <span style={{fontSize:11,color:T.ter}}>2025 → 2026 · {nwF(nwV()-nwP())} növekedés</span>
+            <span style={{fontSize:12,color:T.ter}}>Előző időszakhoz képest</span>
           </div>
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-          <div style={{display:"flex",border:`1px solid ${T.border}`,borderRadius:8,overflow:"hidden"}}>
+        
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+          <div style={{display:"flex",background:T.card,border:`1px solid ${T.border}`,borderRadius:8,overflow:"hidden"}}>
             {["EUR","HUF","USD"].map(c=>(
               <button key={c} onClick={()=>setCur(c)} style={{
-                padding:"5px 12px",fontSize:11,...mono,cursor:"pointer",
+                padding:"6px 16px",fontSize:12,fontWeight:600,cursor:"pointer",
                 background:cur===c?T.blue:"transparent",color:cur===c?"#000":T.ter,border:"none"
               }}>{c}</button>
             ))}
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:11,...mono,color:loading?T.yellow:T.dim}}>{loading?"⟳":mins+":"+secs.toString().padStart(2,"0")}</span>
-            <button onClick={()=>load(sheetUrl)} disabled={loading} title="Azonnali frissítés" style={{padding:"4px 10px",fontSize:11,borderRadius:6,cursor:"pointer",background:`${T.blue}15`,color:T.blue,border:`1px solid ${T.blue}35`}}>⟳</button>
-            <button onClick={()=>{setSheetUrl(null);setData(null);}} title="Beállítások" style={{padding:"4px 10px",fontSize:11,borderRadius:6,cursor:"pointer",background:"transparent",color:T.dim,border:`1px solid ${T.border}`}}>⚙</button>
+          <div style={{fontSize:11,color:T.dim,...mono}}>
+            Frissítés: {loading ? "..." : `${mins}:${secs.toString().padStart(2,"0")}`}
           </div>
-          {lastUp && <span style={{fontSize:9,color:T.dim}}>{lastUp.toLocaleTimeString("hu-HU")}</span>}
         </div>
       </div>
 
-      {error && (
-        <div style={{background:`${T.yellow}10`,border:`1px solid ${T.yellow}30`,borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:T.yellow,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span>⚠️ Sheets olvasás sikertelen ({error}) – demo adatok láthatók</span>
-          <button onClick={()=>load(sheetUrl)} style={{background:"none",border:"none",color:T.yellow,cursor:"pointer",fontSize:11,textDecoration:"underline"}}>Újra</button>
-        </div>
-      )}
-
-      {/* KPI strip */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:6,marginBottom:14}}>
-        {[
-          {l:"ETF",         v:fE(data.etf_eur),              c:T.green},
-          {l:"ETF hozam",   v:`+${data.etf_gain}%`,           c:T.green},
-          {l:"MÁP",         v:fH(data.map_total),             c:T.blue},
-          {l:"Fundamenta",  v:fH(data.fund_huf),              c:T.yellow},
-          {l:"Megtakarítás",v:fH(data.savings_mo)+"/hó",      c:T.cyan},
-          {l:"Ráta",        v:data.netto>0?`${Math.round(data.savings_mo/data.netto*100)}%`:"—", c:T.purple},
-        ].map(({l,v,c})=>(
-          <div key={l} style={{background:T.card2,border:`1px solid ${T.border}`,borderRadius:7,padding:"8px 10px"}}>
-            <div style={{fontSize:9,color:T.ter,marginBottom:3,textTransform:"uppercase",letterSpacing:".05em"}}>{l}</div>
-            <div style={{fontSize:13,fontWeight:600,...mono,color:c}}>{v}</div>
+      {/* CHARTS */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(300px, 1fr))",gap:20,marginBottom:24}}>
+        <div style={crd}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:16,color:T.sec}}>Vagyon alakulása (EUR)</div>
+          <div style={{height:200}}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.history}>
+                <defs>
+                  <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={T.blue} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={T.blue} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+                <XAxis dataKey="mo" hide />
+                <YAxis hide domain={['auto', 'auto']} />
+                <Tooltip content={<CTip fmt={fE} />} />
+                <Area type="monotone" dataKey="eur" stroke={T.blue} fillOpacity={1} fill="url(#g)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-        ))}
-      </div>
-
-      {/* NAV */}
-      <div style={{display:"flex",gap:3,marginBottom:14,borderBottom:`1px solid ${T.border}`,paddingBottom:10}}>
-        {[["portfolio","📈 Portfólió"],["etf","🌍 ETF"],["milestones","🎯 Célok"]].map(([id,lbl])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{
-            padding:"5px 14px",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:500,
-            background:tab===id?`${T.blue}18`:"transparent",
-            color:tab===id?T.blue:T.ter,
-            border:tab===id?`1px solid ${T.blue}40`:"1px solid transparent",
-          }}>{lbl}</button>
-        ))}
-      </div>
-
-      {/* ══ PORTFOLIO ══ */}
-      {tab==="portfolio" && <>
-        <div style={{...crd,marginBottom:12,paddingBottom:10}}>
-          <div style={{fontSize:11,color:T.ter,marginBottom:10}}>Vagyonnövekedés · havi snapshot</div>
-          <ResponsiveContainer width="100%" height={175}>
-            <AreaChart data={data.history.map(h=>({mo:h.mo,val:hV(h)}))} margin={{top:4,right:6,left:0,bottom:0}}>
-              <defs>
-                <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={T.blue} stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor={T.blue} stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.border}/>
-              <XAxis dataKey="mo" tick={{fontSize:10,fill:T.ter}}/>
-              <YAxis tickFormatter={v=>nwF(v)} tick={{fontSize:9,fill:T.ter}} width={62}/>
-              <Tooltip content={<CTip fmt={nwF}/>}/>
-              <Area dataKey="val" stroke={T.blue} strokeWidth={2.5} fill="url(#ag)" dot={{r:3,fill:T.blue}}/>
-            </AreaChart>
-          </ResponsiveContainer>
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:12}}>
-          <div style={crd}>
-            <div style={{fontSize:11,color:T.ter,marginBottom:10}}>Eszközallokáció</div>
-            <div style={{display:"flex",justifyContent:"center"}}>
-              <PieChart width={145} height={138}>
-                <Pie data={alloc} dataKey="huf" innerRadius={38} outerRadius={64} paddingAngle={3} startAngle={90} endAngle={-270}>
-                  {alloc.map((e,i)=><Cell key={i} fill={e.col}/>)}
+        <div style={crd}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:16,color:T.sec}}>Eszközallokáció</div>
+          <div style={{height:200}}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={alloc} dataKey="huf" nameKey="name" innerRadius={60} outerRadius={80} paddingAngle={5} stroke="none">
+                  {alloc.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.col} />)}
                 </Pie>
-                <Tooltip formatter={(v,_,p)=>[fH(v),p.name]}
-                  contentStyle={{background:T.card,border:`1px solid ${T.border}`,fontSize:11,borderRadius:6,color:T.text}}
-                  itemStyle={{color:T.sec}} labelStyle={{color:T.ter}}/>
+                <Tooltip content={<CTip fmt={fH} />} />
               </PieChart>
-            </div>
-            {alloc.map(a=>(
-              <div key={a.name} style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                <div style={{width:6,height:6,borderRadius:2,background:a.col,flexShrink:0}}/>
-                <span style={{fontSize:11,color:T.sec,flex:1}}>{a.name}</span>
-                <span style={{...mono,fontSize:11,color:T.text,fontWeight:500}}>{(a.huf/totH*100).toFixed(1)}%</span>
-                <span style={{...mono,fontSize:10,color:T.ter,width:60,textAlign:"right"}}>{fH(a.huf)}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={crd}>
-            <div style={{fontSize:11,color:T.ter,marginBottom:10}}>MÁP lejáratok</div>
-            {[
-              {n:"Kincstárjegy",huf:data.map_kt,   rate:"6.0%",mat:"2027.01–03",col:T.cyan},
-              {n:"Fix 3 év",    huf:data.map_fix3, rate:"6.5%",mat:"2028.07–09",col:T.blue},
-              {n:"Fix 5 év",    huf:data.map_fix5, rate:"7.0%",mat:"2030.10–2031",col:"#3b82f6"},
-            ].map(m=>(
-              <div key={m.n} style={{background:T.card2,borderRadius:6,padding:"8px 10px",marginBottom:5,borderLeft:`3px solid ${m.col}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div>
-                    <div style={{fontSize:11,fontWeight:500,color:T.text}}>{m.n}</div>
-                    <div style={{fontSize:9,color:T.ter,marginTop:1}}>{m.mat}</div>
-                  </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{...mono,fontSize:12,fontWeight:600,color:m.col}}>{fH(m.huf)}</div>
-                    <div style={{fontSize:9,color:T.ter}}>{m.rate}/év</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div style={{background:`${T.yellow}10`,border:`1px solid ${T.yellow}25`,borderRadius:6,padding:"7px 10px",marginTop:4}}>
-              <div style={{fontSize:10,color:T.yellow,fontWeight:500,marginBottom:2}}>FRISSÍTÉS #1 · Aktív</div>
-              <div style={{fontSize:11,color:T.sec,...mono}}>6.50% → 150K MÁP + 250K ETF/hó</div>
-            </div>
+            </ResponsiveContainer>
           </div>
         </div>
-      </>}
+      </div>
 
-      {/* ══ ETF ══ */}
-      {tab==="etf" && (
-        <div style={crd}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:6}}>
-            <div style={{fontSize:11,color:T.ter}}>Holdings · TBSZ25 + TBSZ26</div>
-            <div style={{...mono,fontSize:13,fontWeight:600,color:T.green}}>+{data.etf_gain}% · {fE(data.etf_eur)}</div>
-          </div>
-          {data.holdings.map(h => {
-            const bw = data.etf_eur>0?(h.eur/data.etf_eur*100).toFixed(0):0;
-            return (
-              <div key={h.ticker} style={{background:T.card2,borderRadius:8,padding:"10px 12px",marginBottom:7}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                  <span style={{...mono,fontSize:13,fontWeight:700,color:h.col,width:44,flexShrink:0}}>{h.ticker}</span>
-                  <span style={{fontSize:10,color:T.ter,padding:"1px 5px",background:T.card3,borderRadius:3,flexShrink:0}}>{h.tbsz}</span>
-                  <span style={{fontSize:11,color:T.sec,flex:1,...mono}}>{h.db} db</span>
-                  <span style={{...mono,fontSize:12,fontWeight:500,color:T.text}}>{fE(h.eur)}</span>
-                  <span style={{...mono,fontSize:12,color:T.green,fontWeight:600}}>+{h.gain}%</span>
-                </div>
-                <div style={{display:"flex",gap:8,marginTop:6,alignItems:"center"}}>
-                  <div style={{flex:1,height:3,background:T.card3,borderRadius:2,overflow:"hidden"}}>
-                    <div style={{height:"100%",width:`${bw}%`,background:h.col,opacity:0.6,borderRadius:2}}/>
-                  </div>
-                  <span style={{...mono,fontSize:9,color:T.ter,width:28,textAlign:"right"}}>{bw}%</span>
-                </div>
-              </div>
-            );
-          })}
-          <div style={{background:`${T.yellow}10`,border:`1px solid ${T.yellow}25`,borderRadius:8,padding:"10px 12px",marginTop:8,fontSize:11,color:T.sec,lineHeight:1.6}}>
-            <span style={{color:T.yellow,fontWeight:500}}>⚠️ US-koncentráció ~80%</span> — SPYL⊂IUSQ és VUAA⊂IWDA átfedés. 2027-től TBSZ26-ban csak IUSQ.
-          </div>
+      {/* HOLDINGS */}
+      <div style={crd}>
+        <div style={{fontSize:14,fontWeight:600,marginBottom:16,color:T.sec}}>ETF Portfólió</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{textAlign:"left",borderBottom:`1px solid ${T.border}`,color:T.ter}}>
+                <th style={{padding:"8px 4px"}}>Ticker</th>
+                <th style={{padding:"8px 4px"}}>Mennyiség</th>
+                <th style={{padding:"8px 4px"}}>Érték (EUR)</th>
+                <th style={{padding:"8px 4px"}}>Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.holdings.map(h=>(
+                <tr key={h.ticker} style={{borderBottom:`1px solid ${T.border}44`}}>
+                  <td style={{padding:"12px 4px",fontWeight:600}}>{h.ticker}</td>
+                  <td style={{padding:"12px 4px",...mono}}>{h.db}</td>
+                  <td style={{padding:"12px 4px",...mono}}>{fE(h.eur)}</td>
+                  <td style={{padding:"12px 4px",color:h.gain>=0?T.green:T.red,...mono}}>
+                    {h.gain>=0?"+":""}{h.gain}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
-      {/* ══ MILESTONES ══ */}
-      {tab==="milestones" && (
-        <div style={crd}>
-          <div style={{fontSize:11,color:T.ter,marginBottom:12}}>Mérföldkövek · Teljes portfólió EUR alapon</div>
-          {GOALS.map(g => {
-            const prog = Math.min(100, data.nw_eur/g.eur*100);
-            const done = data.nw_eur >= g.eur;
-            const near = prog >= 75 && !done;
-            const catC = {DREAM:T.purple,BIG:T.green,LIL:T.blue,STEP:T.ter}[g.cat]||T.ter;
-            const barC = done?T.green:near?T.yellow:catC;
-            return (
-              <div key={g.lbl} style={{
-                padding:"9px 12px",borderRadius:8,marginBottom:6,
-                background:done?`${T.green}10`:near?`${T.yellow}08`:T.card2,
-                border:`1px solid ${done?T.green+"40":near?T.yellow+"30":T.border}`,
-              }}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:9,padding:"2px 5px",borderRadius:3,background:`${catC}20`,color:catC,...mono,flexShrink:0,width:36,textAlign:"center"}}>{g.cat}</span>
-                  <span style={{...mono,fontSize:12,fontWeight:700,width:50,color:barC,flexShrink:0}}>{g.lbl}</span>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                      <span style={{fontSize:10,color:T.sec}}>{done?"✓ Elérve":`Még: ${fE(g.eur-data.nw_eur)}`}</span>
-                      <span style={{...mono,fontSize:10,color:barC,fontWeight:600}}>{prog.toFixed(0)}%</span>
-                    </div>
-                    <div style={{height:3,background:T.card3,borderRadius:2,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${prog}%`,background:barC,borderRadius:2}}/>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div style={{background:`${T.green}08`,border:`1px solid ${T.green}20`,borderRadius:8,padding:"10px 12px",marginTop:6,fontSize:11,color:T.sec,lineHeight:1.6}}>
-            <span style={{color:T.green,fontWeight:500}}>Következő cél €50K:</span> még <span style={{...mono,color:T.text}}>{fE(Math.max(0,50000-data.nw_eur))}</span> · ~{Math.max(0,Math.ceil((50000-data.nw_eur)/1600))} hónap @ €1 600/hó
-          </div>
-        </div>
-      )}
-
-      <p style={{textAlign:"center",fontSize:9,color:T.dim,marginTop:12,lineHeight:1.6}}>
-        {isDemo?"◆ Demo mód – statikus adatok":!error?`● Forrás: Google Sheets · Auto-refresh ${mins}:${secs.toString().padStart(2,"0")}`:"⚠ Sheets offline"} · Nem pénzügyi tanácsadás
+      <p style={{textAlign:"center",fontSize:10,color:T.dim,marginTop:32}}>
+        {isDemo ? "◆ Demo mód" : "● Live adatok"} · Utolsó frissítés: {new Date().toLocaleTimeString()}
       </p>
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-</script>
-<script>
-window.addEventListener('error', function(e) {
-  var root = document.getElementById('root');
-  if (root && !root.hasChildNodes()) {
-    root.innerHTML = '<div style="color:#f87171;background:#111;border:1px solid #333;border-radius:8px;padding:16px;margin:40px auto;max-width:600px;font-family:monospace;font-size:13px;line-height:1.6;">'
-      + '<strong>⚠ Betöltési hiba</strong><br><br>'
-      + (e.message || 'Ismeretlen hiba') + '<br><br>'
-      + '<span style="color:#888;">Frissítsd az oldalt (Ctrl/Cmd+Shift+R). Ha ismétlődik, a CDN-szkriptek (React/Recharts) nem töltődtek be – ellenőrizd az internetkapcsolatot vagy jelezd ezt a hibát.</span>'
-      + '</div>';
-  }
-});
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
 </script>
 </body>
 </html>
