@@ -64,9 +64,13 @@ function parseCsv(text) {
   const obj = {};
   text.trim().split("\n").forEach(row => {
     const [k, ...rest] = row.split(",");
-    const val = rest.join(",").replace(/^"|"$/g,"").trim();
-    const num = parseFloat(val.replace(/\s/g,""));
-    obj[k.trim()] = isNaN(num) ? val : num;
+    const key = k.trim();
+    let val = rest.join(",").replace(/^"|"$/g,"").trim();
+    if (key === "updated") { obj[key] = val; return; }
+    let cleaned = val.replace(/[€$]/g,"").replace(/Ft/g,"").replace(/%/g,"").replace(/[\s\u00A0]/g,"");
+    cleaned = cleaned.replace(/,/g, ".");
+    const num = parseFloat(cleaned);
+    obj[key] = isNaN(num) ? val : num;
   });
   return obj;
 }
