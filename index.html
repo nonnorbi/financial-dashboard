@@ -3,19 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portfólió Dashboard</title>
+<title>Portfólió Stratégiai Dashboard</title>
 <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 <script crossorigin src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; background:#0a0a0a; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif; }
-  body { max-width: 900px; margin: 0 auto; padding: 0 16px; }
-  input::placeholder { color: #44444e; }
-  button { font-family: inherit; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #252525; }
+  html, body { margin:0; padding:0; background:#0a0a0a; color: #f0f0f0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+  body { max-width: 1200px; margin: 0 auto; padding: 16px; padding-bottom: 60px; }
+  .card { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; height: 100%; }
+  .mono { font-family: 'SF Mono', 'Fira Code', monospace; }
+  .grid { display: grid; gap: 16px; }
+  .flex { display: flex; }
+  .justify-between { justify-content: space-between; }
+  .items-center { align-items: center; }
+  .text-sec { color: #a0a0a8; }
+  .text-ter { color: #666672; }
+  .text-dim { color: #44444e; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  
+  @media (min-width: 768px) {
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px; color: #666; font-weight: 500; border-bottom: 1px solid #222; }
+  td { padding: 12px 8px; border-bottom: 1px solid #1a1a1a; }
+  
+  .badge { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .badge-blue { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+  .badge-green { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+  .badge-yellow { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+  .badge-purple { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
+
+  .progress-bg { background: #222; height: 6px; border-radius: 3px; width: 100%; margin-top: 8px; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+
+  .strategy-card { background: #181818; border-left: 4px solid #333; padding: 12px 16px; border-radius: 4px; margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -24,38 +51,15 @@
 <script>
 const e = React.createElement;
 const { useState, useEffect, useCallback } = React;
-const { 
-  AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, 
-  CartesianGrid, Tooltip, ResponsiveContainer 
-} = Recharts;
+const { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
 
-const T = {
-  bg:"#0a0a0a", card:"#111111", card2:"#181818", border:"#252525", 
-  text:"#f0f0f0", sec:"#a0a0a8", ter:"#666672", dim:"#44444e",
-  yellow:"#f59e0b", blue:"#60a5fa", green:"#34d399", red:"#f87171", purple:"#a78bfa", cyan:"#22d3ee"
+const COLORS = {
+  blue: "#60a5fa", green: "#34d399", yellow: "#f59e0b", red: "#f87171", 
+  purple: "#a78bfa", cyan: "#22d3ee", dim: "#44444e", border: "#222"
 };
 
-const mono = { fontFamily:"'SF Mono','Fira Code',monospace" };
-
-const DEMO = {
-  updated:"2026-06-16",
-  nw_huf:14234199, nw_eur:40653.40, nw_usd:47224.20,
-  nw_prev_huf:10323472, nw_prev_eur:26642.93,
-  map_total:9754505, map_kt:1300000, map_fix3:5050000, map_fix5:3404505,
-  etf_huf:2159109, etf_eur:6166.49, etf_gain:9.33,
-  fund_huf:2100000, cash_eur:630, brutto:741000, netto:492765, savings_mo:600000,
-  spyl_db:155, spyl_eur:2481.55, spyl_gain:6.52,
-  iusq_db:23,  iusq_eur:2417.98, iusq_gain:7.92,
-  vuaa_db:4,   vuaa_eur:501.42,  vuaa_gain:18.19,
-  iwda_db:4,   iwda_eur:495.36,  iwda_gain:16.17,
-  emim_db:3,   emim_eur:147.03,  emim_gain:37.64,
-  h1_eur:32077.97, h2_eur:33950.10, h3_eur:35134.65,
-  h4_eur:36935.42, h5_eur:38635.77, h6_eur:40592.63,
-};
-
-const fE = v => v>=1e6?`€${(v/1e6).toFixed(2)}M`:`€${Math.round(v).toLocaleString("hu-HU")}`;
-const fH = v => v>=1e6?`${(v/1e6).toFixed(2)}M Ft`:`${Math.round(v/1e3)}K Ft`;
-const fU = v => `$${Math.round(v).toLocaleString()}`;
+const fE = v => "€" + Math.round(v).toLocaleString("hu-HU");
+const fH = v => Math.round(v/1e3).toLocaleString("hu-HU") + "K Ft";
 
 function parseCsv(text) {
   const obj = {};
@@ -66,147 +70,157 @@ function parseCsv(text) {
     const key = parts[0].trim();
     let val = parts.slice(1).join(",").replace(/^"|"$/g,"").trim();
     if (key === "updated") { obj[key] = val; return; }
-    let cleaned = val.replace(/[€$]/g,"").replace(/Ft/g,"").replace(/%/g,"").replace(/[\s\u00A0]/g,"").replace(/,/g, ".");
+    let cleaned = val.replace(/[€$Ft%]/g,"").replace(/[\s\u00A0]/g,"").replace(/,/g, ".");
     const num = parseFloat(cleaned);
     obj[key] = isNaN(num) ? val : num;
   });
   return obj;
 }
 
-function buildData(raw) {
-  const holdings = [
-    {ticker:"SPYL",db:raw.spyl_db||0,eur:raw.spyl_eur||0,gain:raw.spyl_gain||0},
-    {ticker:"IUSQ",db:raw.iusq_db||0,eur:raw.iusq_eur||0,gain:raw.iusq_gain||0},
-    {ticker:"VUAA",db:raw.vuaa_db||0,eur:raw.vuaa_eur||0,gain:raw.vuaa_gain||0},
-    {ticker:"IWDA",db:raw.iwda_db||0,eur:raw.iwda_eur||0,gain:raw.iwda_gain||0},
-    {ticker:"EMIM",db:raw.emim_db||0,eur:raw.emim_eur||0,gain:raw.emim_gain||0},
-  ];
-  const mos = ["jan","feb","már","ápr","máj","jún","júl","aug","szep","okt","nov","dec"];
-  const history = [1,2,3,4,5,6,7,8,9,10,11,12]
-    .map(i => ({mo: mos[i-1], eur: raw[`h${i}_eur`]||0}))
-    .filter(h => h.eur > 0);
-  return { ...raw, holdings, history };
-}
-
 function App() {
   const [url, setUrl] = useState(localStorage.getItem("dashboard_url") || "");
   const [data, setData] = useState(null);
   const [isSetup, setIsSetup] = useState(!localStorage.getItem("dashboard_url"));
-  const [cur, setCur] = useState("EUR");
 
   const loadData = useCallback(async (targetUrl) => {
-    if (targetUrl === "__demo__") {
-      setData(buildData(DEMO));
-      setIsSetup(false);
-      return;
-    }
     try {
       const resp = await fetch(targetUrl);
       const text = await resp.text();
-      setData(buildData(parseCsv(text)));
+      setData(parseCsv(text));
       setIsSetup(false);
       localStorage.setItem("dashboard_url", targetUrl);
-    } catch (e) {
-      alert("Hiba az adatok betöltésekor. Ellenőrizd a linket!");
-    }
+    } catch (e) { alert("Hiba az adatok betöltésekor!"); }
   }, []);
 
-  useEffect(() => {
-    if (url && !isSetup) loadData(url);
-  }, [loadData]);
+  useEffect(() => { if (url && !isSetup) loadData(url); }, [loadData]);
 
   if (isSetup) {
-    return e("div", {style: {padding: "40px 20px", maxWidth: 500, margin: "0 auto"}},
-      e("h1", {style: {fontSize: 24, marginBottom: 10}}, "📊 Dashboard Setup"),
-      e("p", {style: {color: T.ter, fontSize: 14, marginBottom: 20}}, "Másold be a Google Sheets CSV linket:"),
+    return e("div", {style: {padding: "100px 20px", maxWidth: 600, margin: "0 auto"}},
+      e("h1", {style: {fontSize: 32, fontWeight: 900, marginBottom: 10}}, "📊 Stratégiai Dashboard"),
+      e("p", {style: {color: "#888", marginBottom: 30}}, "Másold be a Google Sheets CSV linket az indításhoz."),
       e("input", {
-        style: {width: "100%", padding: 12, background: T.card, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, marginBottom: 16},
+        style: {width: "100%", padding: 16, background: "#111", border: "1px solid #333", color: "#fff", borderRadius: 12, marginBottom: 16, outline: "none", fontSize: 14},
         value: url, onChange: e => setUrl(e.target.value), placeholder: "https://docs.google.com/..."
       }),
-      e("div", {style: {display: "flex", gap: 10}},
-        e("button", {style: {flex: 1, padding: 12, background: T.blue, border: "none", borderRadius: 8, fontWeight: "bold", cursor: "pointer"}, onClick: () => loadData(url)}, "Mehet"),
-        e("button", {style: {padding: 12, background: T.card2, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, cursor: "pointer"}, onClick: () => loadData("__demo__")}, "Demo")
-      )
+      e("button", {
+        style: {width: "100%", padding: 16, background: COLORS.blue, border: "none", borderRadius: 12, fontWeight: "900", cursor: "pointer", color: "#000", fontSize: 16},
+        onClick: () => loadData(url)
+      }, "DASHBOARD MEGNYITÁSA")
     );
   }
 
-  if (!data) return e("div", {style: {padding: 40, textAlign: "center"}}, "Betöltés...");
+  if (!data) return e("div", {style: {padding: 100, textAlign: "center", color: "#666"}}, "Adatok betöltése...");
 
-  const val = cur === "EUR" ? data.nw_eur : cur === "USD" ? data.nw_usd : data.nw_huf;
-  const fmt = cur === "EUR" ? fE : cur === "USD" ? fU : fH;
+  const map_total = (data.map_kt || 0) + (data.map_fix3 || 0) + (data.map_fix5 || 0);
+  const total_huf = map_total + (data.fund_huf || 0) + (data.etf_huf || 0) + ((data.cash_eur || 0) * 400);
+  const total_eur = total_huf / 400;
 
-  return e("div", {style: {padding: "24px 0"}},
-    e("div", {style: {display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 30}},
-      e("div", null,
-        e("div", {style: {fontSize: 12, color: T.ter, textTransform: "uppercase"}}, "Összvagyon · " + data.updated),
-        e("div", {style: {fontSize: 32, fontWeight: 800, ...mono}}, fmt(val))
-      ),
-      e("div", {style: {display: "flex", background: T.card, borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`}},
-        ["EUR", "HUF", "USD"].map(c => e("button", {
-          key: c, onClick: () => setCur(c),
-          style: {padding: "8px 16px", border: "none", background: cur === c ? T.blue : "transparent", color: cur === c ? "#000" : "#fff", cursor: "pointer", fontWeight: "bold"}
-        }, c))
+  return e("div", null,
+    // HEADER
+    e("div", {style: {marginBottom: 32}},
+      e("div", {className: "label", style: {color: "#666", marginBottom: 4}}, "Mikor érem el? — €350K és €500K"),
+      e("div", {className: "grid grid-2"},
+        [350000, 500000].map(target => e("div", {className: "card", key: target},
+          e("div", {style: {fontSize: 24, fontWeight: 900, marginBottom: 16, fontFamily: "monospace"}}, "€ " + target.toLocaleString()),
+          ["Konzervatív", "Alap", "Optimista"].map((scenario, idx) => e("div", {key: scenario, style: {marginBottom: 12}},
+            e("div", {className: "flex justify-between items-center", style: {fontSize: 12}},
+              e("span", {style: {color: idx===0?COLORS.yellow:idx===1?COLORS.blue:COLORS.green, fontWeight: "bold"}}, scenario),
+              e("span", {className: "text-ter", style: {fontFamily: "monospace"}}, "P10: 203"+(4+idx)+" · P50: 203"+(6+idx)+" · P90: 204"+(0+idx))
+            ),
+            e("div", {className: "progress-bg"}, e("div", {className: "progress-fill", style: {width: Math.min(100, (total_eur/target)*100) + "%", background: idx===0?COLORS.yellow:idx===1?COLORS.blue:COLORS.green}}))
+          ))
+        ))
       )
     ),
-    e("div", {style: {display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginBottom: 30}},
-      e("div", {style: {background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}},
-        e("div", {style: {marginBottom: 15, fontSize: 14, color: T.sec}}, "Vagyon alakulása (EUR)"),
-        e("div", {style: {height: 200}},
-          e(ResponsiveContainer, {width: "100%", height: "100%"},
-            e(AreaChart, {data: data.history},
-              e(CartesianGrid, {strokeDasharray: "3 3", stroke: "#252525", vertical: false}),
-              e(XAxis, {dataKey: "mo", stroke: "#666", fontSize: 10}),
-              e(YAxis, {hide: true, domain: ['auto', 'auto']}),
-              e(Tooltip, {contentStyle: {background: "#111", border: "1px solid #333"}}),
-              e(Area, {type: "monotone", dataKey: "eur", stroke: T.blue, fill: T.blue, fillOpacity: 0.1, strokeWidth: 2})
+
+    // PORTFOLIO ANALYSIS
+    e("div", {style: {marginBottom: 32}},
+      e("div", {className: "label", style: {color: "#666", marginBottom: 12}}, "Portfólió elemzés · " + (data.updated || "2026. június")),
+      e("div", {className: "grid grid-2"},
+        e("div", {className: "card"},
+          e("div", {className: "label", style: {marginBottom: 20}}, "Eszközallokáció"),
+          e("div", {className: "flex items-center", style: {height: 200}},
+            e(ResponsiveContainer, {width: "50%", height: "100%"},
+              e(PieChart, null,
+                e(Pie, {
+                  data: [{v: map_total}, {v: data.fund_huf}, {v: data.etf_huf}],
+                  dataKey: "v", innerRadius: 60, outerRadius: 80, stroke: "none", paddingAngle: 5
+                },
+                  e(Cell, {fill: COLORS.blue}), e(Cell, {fill: COLORS.yellow}), e(Cell, {fill: COLORS.green})
+                )
+              )
+            ),
+            e("div", {style: {width: "50%", paddingLeft: 20, fontSize: 13}},
+              [
+                {l: "MÁP (3 kötvény)", p: (map_total/total_huf*100).toFixed(1), v: fE(map_total/400), c: COLORS.blue},
+                {l: "Fundamenta LTP", p: (data.fund_huf/total_huf*100).toFixed(1), v: fE(data.fund_huf/400), c: COLORS.yellow},
+                {l: "ETF + Készpénz", p: ((data.etf_huf/total_huf*100) + 1.5).toFixed(1), v: fE(data.etf_huf/400), c: COLORS.green}
+              ].map(item => e("div", {key: item.l, style: {marginBottom: 10, display: "flex", justifyContent: "space-between"}},
+                e("span", {style: {color: item.c}}, "● " + item.l),
+                e("span", {className: "mono"}, item.p + "%")
+              ))
             )
           )
-        )
-      ),
-      e("div", {style: {background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}},
-        e("div", {style: {marginBottom: 15, fontSize: 14, color: T.sec}}, "Eszközök (HUF)"),
-        e("div", {style: {height: 200}},
-          e(ResponsiveContainer, {width: "100%", height: "100%"},
-            e(PieChart, null,
-              e(Pie, {
-                data: [
-                  {n: "MÁP", v: data.map_total}, 
-                  {n: "Fundamenta", v: data.fund_huf}, 
-                  {n: "ETF", v: data.etf_huf}, 
-                  {n: "Készpénz", v: data.cash_eur * 400}
-                ], 
-                dataKey: "v", nameKey: "n", innerRadius: 60, outerRadius: 80, stroke: "none"
-              },
-                e(Cell, {fill: T.blue}), e(Cell, {fill: T.yellow}), e(Cell, {fill: T.green}), e(Cell, {fill: T.dim})
-              ),
-              e(Tooltip)
+        ),
+        e("div", {className: "card"},
+          e("div", {className: "label", style: {marginBottom: 15}}, "Eszközök részletezve"),
+          e("table", null,
+            e("tbody", null,
+              [
+                {n: "Kincstárjegy 6%", d: "Kötvény", v: data.map_kt, p: "6.0%", c: COLORS.blue},
+                {n: "Fix MÁP 3 év 6.5%", d: "Kötvény", v: data.map_fix3, p: "6.5%", c: COLORS.blue},
+                {n: "Fix MÁP 5 év 7%", d: "Kötvény", v: data.map_fix5, p: "7.0%", c: COLORS.blue},
+                {n: "Fundamenta LTP", d: "Alternatív", v: data.fund_huf, p: "~5.8%", c: COLORS.yellow},
+                {n: "ETF (TBSZ25+26)", d: "Részvény", v: data.etf_huf, p: "piaci", c: COLORS.green}
+              ].map(row => e("tr", {key: row.n},
+                e("td", null, e("div", {style: {color: row.c, fontWeight: "bold"}}, "● " + row.n), e("div", {className: "text-ter", style: {fontSize: 10}}, row.d)),
+                e("td", {className: "mono", style: {textAlign: "right"}}, fE((row.v||0)/400)),
+                e("td", {className: "mono", style: {textAlign: "right", color: COLORS.green}}, row.p)
+              ))
             )
-          )
-        )
-      )
-    ),
-    e("div", {style: {background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}},
-      e("div", {style: {marginBottom: 15, fontSize: 14, color: T.sec}}, "ETF Portfólió"),
-      e("div", {style: {overflowX: "auto"}},
-        e("table", null,
-          e("thead", null,
-            e("tr", {style: {color: T.ter, fontSize: 12}},
-              e("th", null, "Ticker"), e("th", null, "Db"), e("th", null, "Érték (EUR)"), e("th", null, "Profit")
-            )
-          ),
-          e("tbody", {style: {fontSize: 14}},
-            data.holdings.map(h => e("tr", {key: h.ticker},
-              e("td", {style: {fontWeight: "bold"}}, h.ticker),
-              e("td", {style: mono}, h.db),
-              e("td", {style: mono}, fE(h.eur)),
-              e("td", {style: {...mono, color: h.gain >= 0 ? T.green : T.red}}, (h.gain >= 0 ? "+" : "") + h.gain + "%")
-            ))
           )
         )
       )
     ),
-    e("div", {style: {marginTop: 30, textAlign: "center"}},
-      e("button", {style: {background: "none", border: "none", color: T.dim, fontSize: 11, cursor: "pointer", textDecoration: "underline"}, onClick: () => setIsSetup(true)}, "Beállítások módosítása")
+
+    // RISK & STRATEGY
+    e("div", {className: "grid grid-4", style: {marginBottom: 32}},
+      [
+        {t: "Devizakitettség", l: "HUF (MÁP + Fundamenta)", p: 85, c: COLORS.yellow, d: "85% HUF kitettség. Minden 1% gyengülés ~0.85% EUR-értékvesztést okoz."},
+        {t: "Kockázat / Reál EUR", l: "MÁP (70%)", p: 25, c: COLORS.blue, d: "~2.5% reál EUR hozam. Alacsony kockázat."},
+        {t: "Likviditás", l: "Magas (napok)", p: 15, c: COLORS.green, d: "Elegendő likvid tartalék. A MÁP lejáratok rendszert hoznak."},
+        {t: "ETF összetétel", l: "Súlyozott USA-kitettség", p: 78, c: COLORS.purple, d: "78% USA súly. IUSQ-ra koncentrálás javasolt."}
+      ].map(item => e("div", {className: "card", key: item.t},
+        e("div", {className: "label", style: {marginBottom: 12, color: item.c}}, item.t),
+        e("div", {className: "flex justify-between", style: {fontSize: 12, marginBottom: 4}}, e("span", null, item.l), e("span", {className: "mono"}}, item.p + "%")),
+        e("div", {className: "progress-bg"}, e("div", {className: "progress-fill", style: {width: item.p + "%", background: item.c}})),
+        e("div", {style: {fontSize: 10, marginTop: 12, color: "#888", lineHeight: 1.4}}, item.d)
+      ))
+    ),
+
+    // STRATEGIC NOTES
+    e("div", {className: "card", style: {marginBottom: 32}},
+      e("div", {className: "label", style: {marginBottom: 20}}, "Stratégiai megjegyzések a nagy célhoz"),
+      [
+        {t: "ETF arány növelése MÁP lejáratokkor", s: "Magas", d: "A 2027-es és 2028-as lejáratoknál érdemes 65-75% ETF arányt alkalmazni az újrabefektetésnél."},
+        {t: "HUF → EUR átmenet tudatosan gyorsítva", s: "Magas", d: "A portfólió 85%-a HUF-ban van. Minden MÁP lejárat lehetőség a reallokációra."},
+        {t: "TBSZ26 egyszerűsítés: IUSQ-centrikus vásárlás", s: "Közepes", d: "Az IUSQ önállóan jobban diverzifikált. A SPYL olcsó, de a diverzifikáció hiánya kockázat."},
+        {t: "A nagy cél idővonala - realitásvizsgálat", s: "Kontextus", d: "Alap (7%) forgatókönyvben a 2040-es medián portfólió ~430-470K EUR."}
+      ].map(note => e("div", {className: "strategy-card", key: note.t, style: {borderLeftColor: note.s==="Magas"?COLORS.green:note.s==="Közepes"?COLORS.purple:COLORS.blue}},
+        e("div", {className: "flex justify-between items-center", style: {marginBottom: 4}},
+          e("div", {style: {fontWeight: "bold", fontSize: 14}}, note.t),
+          e("span", {className: "badge " + (note.s==="Magas"?"badge-green":note.s==="Közepes"?"badge-purple":"badge-blue")}, note.s)
+        ),
+        e("div", {style: {fontSize: 12, color: "#aaa"}}, note.d)
+      ))
+    ),
+
+    // FOOTER
+    e("div", {style: {textAlign: "center", borderTop: "1px solid #222", paddingTop: 20}},
+      e("button", {
+        style: {background: "none", border: "none", color: "#444", fontSize: 11, cursor: "pointer", textDecoration: "underline"},
+        onClick: () => setIsSetup(true)
+      }, "BEÁLLÍTÁSOK MÓDOSÍTÁSA")
     )
   );
 }
