@@ -4,20 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portfólió Dashboard</title>
-<!-- Stabil UMD verziók használata -->
 <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 <script crossorigin src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
-<script crossorigin src="https://unpkg.com/@babel/standalone@7.23.11/babel.min.js"></script>
-
 <style>
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; background:#0a0a0a; color: #f0f0f0; font-family: system-ui, -apple-system, sans-serif; }
   body { max-width: 900px; margin: 0 auto; padding: 0 16px; }
   input::placeholder { color: #44444e; }
   button { font-family: inherit; }
-  pre { white-space: pre-wrap; word-wrap: break-word; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #252525; }
 </style>
@@ -25,9 +21,9 @@
 <body>
 <div id="root"></div>
 
-<!-- CSAK 'react' preset használata, hogy elkerüljük a modul-hibát -->
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useCallback, useMemo } = React;
+<script>
+const e = React.createElement;
+const { useState, useEffect, useCallback } = React;
 const { 
   AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, 
   CartesianGrid, Tooltip, ResponsiveContainer 
@@ -117,114 +113,106 @@ function App() {
 
   useEffect(() => {
     if (url && !isSetup) loadData(url);
-  }, []);
+  }, [loadData]);
 
   if (isSetup) {
-    return (
-      <div style={{padding: "40px 20px", maxWidth: 500, margin: "0 auto"}}>
-        <h1 style={{fontSize: 24, marginBottom: 10}}>📊 Dashboard Setup</h1>
-        <p style={{color: T.ter, fontSize: 14, marginBottom: 20}}>Másold be a Google Sheets CSV linket:</p>
-        <input 
-          style={{width: "100%", padding: 12, background: T.card, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, marginBottom: 16}}
-          value={url} onChange={e => setUrl(e.target.value)} placeholder="https://docs.google.com/..."
-        />
-        <div style={{display: "flex", gap: 10}}>
-          <button style={{flex: 1, padding: 12, background: T.blue, border: "none", borderRadius: 8, fontWeight: "bold", cursor: "pointer"}} onClick={() => loadData(url)}>Mehet</button>
-          <button style={{padding: 12, background: T.card2, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, cursor: "pointer"}} onClick={() => loadData("__demo__")}>Demo</button>
-        </div>
-      </div>
+    return e("div", {style: {padding: "40px 20px", maxWidth: 500, margin: "0 auto"}},
+      e("h1", {style: {fontSize: 24, marginBottom: 10}}, "📊 Dashboard Setup"),
+      e("p", {style: {color: T.ter, fontSize: 14, marginBottom: 20}}, "Másold be a Google Sheets CSV linket:"),
+      e("input", {
+        style: {width: "100%", padding: 12, background: T.card, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, marginBottom: 16},
+        value: url, onChange: e => setUrl(e.target.value), placeholder: "https://docs.google.com/..."
+      }),
+      e("div", {style: {display: "flex", gap: 10}},
+        e("button", {style: {flex: 1, padding: 12, background: T.blue, border: "none", borderRadius: 8, fontWeight: "bold", cursor: "pointer"}, onClick: () => loadData(url)}, "Mehet"),
+        e("button", {style: {padding: 12, background: T.card2, border: `1px solid ${T.border}`, color: "#fff", borderRadius: 8, cursor: "pointer"}, onClick: () => loadData("__demo__")}, "Demo")
+      )
     );
   }
 
-  if (!data) return <div style={{padding: 40, textAlign: "center"}}>Betöltés...</div>;
+  if (!data) return e("div", {style: {padding: 40, textAlign: "center"}}, "Betöltés...");
 
   const val = cur === "EUR" ? data.nw_eur : cur === "USD" ? data.nw_usd : data.nw_huf;
   const fmt = cur === "EUR" ? fE : cur === "USD" ? fU : fH;
 
-  return (
-    <div style={{padding: "24px 0"}}>
-      <div style={{display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 30}}>
-        <div>
-          <div style={{fontSize: 12, color: T.ter, textTransform: "uppercase"}}>Összvagyon · {data.updated}</div>
-          <div style={{fontSize: 32, fontWeight: 800, ...mono}}>{fmt(val)}</div>
-        </div>
-        <div style={{display: "flex", background: T.card, borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`}}>
-          {["EUR", "HUF", "USD"].map(c => (
-            <button key={c} onClick={() => setCur(c)} style={{padding: "8px 16px", border: "none", background: cur === c ? T.blue : "transparent", color: cur === c ? "#000" : "#fff", cursor: "pointer", fontWeight: "bold"}}>{c}</button>
-          ))}
-        </div>
-      </div>
-
-      <div style={{display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginBottom: 30}}>
-        <div style={{background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}}>
-          <div style={{marginBottom: 15, fontSize: 14, color: T.sec}}>Vagyon alakulása (EUR)</div>
-          <div style={{height: 200}}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.history}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#252525" vertical={false} />
-                <XAxis dataKey="mo" stroke="#666" fontSize={10} />
-                <YAxis hide domain={['auto', 'auto']} />
-                <Tooltip contentStyle={{background: "#111", border: "1px solid #333"}} />
-                <Area type="monotone" dataKey="eur" stroke={T.blue} fill={T.blue} fillOpacity={0.1} strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div style={{background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}}>
-          <div style={{marginBottom: 15, fontSize: 14, color: T.sec}}>Eszközök (HUF)</div>
-          <div style={{height: 200}}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={[
-                    {n: "MÁP", v: data.map_total}, 
-                    {n: "Fundamenta", v: data.fund_huf}, 
-                    {n: "ETF", v: data.etf_huf}, 
-                    {n: "Készpénz", v: data.cash_eur * 400}
-                  ]} 
-                  dataKey="v" nameKey="n" innerRadius={60} outerRadius={80} stroke="none"
-                >
-                  <Cell fill={T.blue} /><Cell fill={T.yellow} /><Cell fill={T.green} /><Cell fill={T.dim} />
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      <div style={{background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}}>
-        <div style={{marginBottom: 15, fontSize: 14, color: T.sec}}>ETF Portfólió</div>
-        <div style={{overflowX: "auto"}}>
-          <table>
-            <thead>
-              <tr style={{color: T.ter, fontSize: 12}}>
-                <th>Ticker</th><th>Db</th><th>Érték (EUR)</th><th>Profit</th>
-              </tr>
-            </thead>
-            <tbody style={{fontSize: 14}}>
-              {data.holdings.map(h => (
-                <tr key={h.ticker}>
-                  <td style={{fontWeight: "bold"}}>{h.ticker}</td>
-                  <td style={mono}>{h.db}</td>
-                  <td style={mono}>{fE(h.eur)}</td>
-                  <td style={{...mono, color: h.gain >= 0 ? T.green : T.red}}>{h.gain >= 0 ? "+" : ""}{h.gain}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-      <div style={{marginTop: 30, textAlign: "center"}}>
-        <button style={{background: "none", border: "none", color: T.dim, fontSize: 11, cursor: "pointer", textDecoration: "underline"}} onClick={() => setIsSetup(true)}>Beállítások módosítása</button>
-      </div>
-    </div>
+  return e("div", {style: {padding: "24px 0"}},
+    e("div", {style: {display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 30}},
+      e("div", null,
+        e("div", {style: {fontSize: 12, color: T.ter, textTransform: "uppercase"}}, "Összvagyon · " + data.updated),
+        e("div", {style: {fontSize: 32, fontWeight: 800, ...mono}}, fmt(val))
+      ),
+      e("div", {style: {display: "flex", background: T.card, borderRadius: 8, overflow: "hidden", border: `1px solid ${T.border}`}},
+        ["EUR", "HUF", "USD"].map(c => e("button", {
+          key: c, onClick: () => setCur(c),
+          style: {padding: "8px 16px", border: "none", background: cur === c ? T.blue : "transparent", color: cur === c ? "#000" : "#fff", cursor: "pointer", fontWeight: "bold"}
+        }, c))
+      )
+    ),
+    e("div", {style: {display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginBottom: 30}},
+      e("div", {style: {background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}},
+        e("div", {style: {marginBottom: 15, fontSize: 14, color: T.sec}}, "Vagyon alakulása (EUR)"),
+        e("div", {style: {height: 200}},
+          e(ResponsiveContainer, {width: "100%", height: "100%"},
+            e(AreaChart, {data: data.history},
+              e(CartesianGrid, {strokeDasharray: "3 3", stroke: "#252525", vertical: false}),
+              e(XAxis, {dataKey: "mo", stroke: "#666", fontSize: 10}),
+              e(YAxis, {hide: true, domain: ['auto', 'auto']}),
+              e(Tooltip, {contentStyle: {background: "#111", border: "1px solid #333"}}),
+              e(Area, {type: "monotone", dataKey: "eur", stroke: T.blue, fill: T.blue, fillOpacity: 0.1, strokeWidth: 2})
+            )
+          )
+        )
+      ),
+      e("div", {style: {background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}},
+        e("div", {style: {marginBottom: 15, fontSize: 14, color: T.sec}}, "Eszközök (HUF)"),
+        e("div", {style: {height: 200}},
+          e(ResponsiveContainer, {width: "100%", height: "100%"},
+            e(PieChart, null,
+              e(Pie, {
+                data: [
+                  {n: "MÁP", v: data.map_total}, 
+                  {n: "Fundamenta", v: data.fund_huf}, 
+                  {n: "ETF", v: data.etf_huf}, 
+                  {n: "Készpénz", v: data.cash_eur * 400}
+                ], 
+                dataKey: "v", nameKey: "n", innerRadius: 60, outerRadius: 80, stroke: "none"
+              },
+                e(Cell, {fill: T.blue}), e(Cell, {fill: T.yellow}), e(Cell, {fill: T.green}), e(Cell, {fill: T.dim})
+              ),
+              e(Tooltip)
+            )
+          )
+        )
+      )
+    ),
+    e("div", {style: {background: T.card, padding: 20, borderRadius: 12, border: `1px solid ${T.border}`}},
+      e("div", {style: {marginBottom: 15, fontSize: 14, color: T.sec}}, "ETF Portfólió"),
+      e("div", {style: {overflowX: "auto"}},
+        e("table", null,
+          e("thead", null,
+            e("tr", {style: {color: T.ter, fontSize: 12}},
+              e("th", null, "Ticker"), e("th", null, "Db"), e("th", null, "Érték (EUR)"), e("th", null, "Profit")
+            )
+          ),
+          e("tbody", {style: {fontSize: 14}},
+            data.holdings.map(h => e("tr", {key: h.ticker},
+              e("td", {style: {fontWeight: "bold"}}, h.ticker),
+              e("td", {style: mono}, h.db),
+              e("td", {style: mono}, fE(h.eur)),
+              e("td", {style: {...mono, color: h.gain >= 0 ? T.green : T.red}}, (h.gain >= 0 ? "+" : "") + h.gain + "%")
+            ))
+          )
+        )
+      )
+    ),
+    e("div", {style: {marginTop: 30, textAlign: "center"}},
+      e("button", {style: {background: "none", border: "none", color: T.dim, fontSize: 11, cursor: "pointer", textDecoration: "underline"}, onClick: () => setIsSetup(true)}, "Beállítások módosítása")
+    )
   );
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+root.render(e(App));
 </script>
 </body>
 </html>
